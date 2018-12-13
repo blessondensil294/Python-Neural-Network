@@ -974,3 +974,552 @@ Category embeddings
 Input: integers
 Output: floats
 Note: Increased dimensionality: output layer flattens back to 2D
+
+
+Embedding layer is a lookup table for the categorical value
+
+Inputs
+input_tensor = Input(shape=(1,))
+
+Embedding Layer
+from keras.layers import Embedding
+input_tensor = Input(shape=(1,))
+n_teams = 10887
+embed_layer = Embedding(input_dim=n_teams,
+                        input_length=1,
+                        output_dim=1,
+                        name='Team-Strength-Lookup')
+embed_tensor = embed_layer(input_tensor)
+
+Flattening - to flatten the embed layer from 3d to 2d
+from keras.layers import Flatten
+flatten_tensor = Flatten()(embed_tensor)
+model = Model(input_tensor, flatten_tensor)
+
+Define team model
+The team strength lookup has three components: an input, an embedding layer, and a flatten layer that creates the output.
+
+If you wrap these three layers in a model with an input and output, you can re-use that stack of three layers at multiple places.
+
+Note again that the weights for all three layers will be shared everywhere we use them.
+
+# Imports
+from keras.layers import Input, Embedding, Flatten
+from keras.models import Model
+
+# Create an input layer for the team ID
+teamid_in = Input(shape=(1,))
+
+# Lookup the input in the team strength embedding layer
+strength_lookup = team_lookup(teamid_in)
+
+# Flatten the output
+strength_lookup_flat = Flatten()(strength_lookup)
+
+# Combine the operations into a single, re-usable model
+team_strength_model = Model(teamid_in, strength_lookup_flat, name='Team-Strength-Model')
+
+Shared layers
+Define a operation and apply the same for the exact same operations and the exact same weights on different inputs
+
+
+from keras.layers import Input
+input_tensor_1 = Input(shape=(1,), name='Team-1-In')
+input_tensor_2 = Input(shape=(1,), name='Team-2-In')
+
+
+shared_layer = Dense(1)
+output_tensor_1 = shared_layer(input_tensor_1)
+output_tensor_2 = shared_layer(input_tensor_2)
+
+Sharing multiple layers as a model
+input_tensor = Input(shape=(1,))
+n_teams = 10887
+embed_layer = Embedding(input_dim=n_teams,
+                        input_length=1,
+                        output_dim=1,
+                        name='Team-Strength-Lookup')
+embed_tensor = embed_layer(input_tensor)
+flatten_tensor = Flatten()(embed_tensor)
+model = Model(input_tensor, flatten_tensor)
+ 
+input_tensor_1 = Input((1,))
+input_tensor_2 = Input((1,))
+output_tensor_1 = model(input_tensor_1)
+output_tensor_2 = model(input_tensor_2)
+
+Lookup both inputs in the same model
+Now that you have a team strength model and an input layer for each team, you can lookup the team inputs in the shared team strength model. The two inputs will share the same weights.
+
+In this dataset, you have 10,888 unique teams. You want to learn a strength rating for each team, such that if any pair of teams plays each other, you can predict the score, even if those two teams have never played before. Furthermore, you want the strength rating to be the same, regardless of whether the team is the home team or the away team.
+
+To achieve this, you use a shared layer, defined by the re-usable model (team_strength_model()) you built in exercise 3 and the two input layers (team_in_1 and team_in_2) from the previous exercise, all of which are available in your workspace.
+
+# Lookup team 1 in the team strength model
+team_1_strength = team_strength_model(team_in_1)
+
+# Lookup team 2 in the team strength model
+team_2_strength = team_strength_model(team_in_2)
+
+
+Merge layers - Define advanced non sequential topology- create a flexibility to solve and design
+Add
+Subtract
+Multiply
+Concatenate
+
+Merge layers
+from keras.layers import Input, Add
+in_tensor_1 = Input((1,))
+in_tensor_2 = Input((1,))
+out_tensor = Add()([in_tensor_1, in_tensor_2])
+
+in_tensor_3 = Input((1,))  
+out_tensor = Add()([in_tensor_1, in_tensor_2, in_tensor_3])
+
+
+Create the model
+from keras.models import Model
+model = Model([in_tensor_1, in_tensor_2], out_tensor)
+
+Compile the model
+model.compile(optimizer='adam', loss='mean_absolute_error')
+
+
+The subtract layer will combine the weights from the two layers by subtracting them.
+# Import the Subtract layer from keras
+from keras.layers import Subtract
+
+# Create a subtract layer using the inputs from the previous exercise
+score_diff = Subtract()([team_1_strength, team_2_strength])
+
+
+Model using two inputs and one output
+Now that you have your two inputs (team id 1 and team id 2) and output (score difference), you can wrap them up in a model so you can use it later for fitting to data and evaluating on new data.
+
+Your model will look like the following diagram:
+
+# Imports
+from keras.layers import Subtract
+from keras.models import Model
+
+# Subtraction layer from previous exercise
+score_diff = Subtract()([team_1_strength, team_2_strength])
+
+# Create the model
+model = Model([team_in_1, team_in_2], score_diff)
+
+# Compile the model
+model.compile(optimizer='adam', loss='mean_absolute_error')
+
+
+Fitting and Predicting with multiple inputs
+
+Predict from your model
+
+Fit with multiple inputs
+model.fit([data_1, data_2], target)
+
+Predict with multiple inputs
+model.predict([np.array([[1]]), np.array([[2]])])
+array([[3.]], dtype=float32)
+ 
+model.predict([np.array([[42]]), np.array([[119]])])
+array([[161.]], dtype=float32)
+
+
+Evaluate with multiple inputs
+model.evaluate([np.array([[-1]]), np.array([[-2]])], np.array([[-3]]))
+ 
+1/1 [==============================] - 0s 801us/step
+Out[21]: 0.0
+
+Fit the model to the regular season training data
+Now that you've defined a complete team strength model, you can fit it to the basketball data! Since your model has two inputs now, you need to pass the input data as a list.
+
+
+# Get the team_1 column from the regular season data
+input_1 = games_season['team_1']
+
+# Get the team_2 column from the regular season data
+input_2 = games_season['team_2']
+
+# Fit the model to input 1 and 2, using score diff as a target
+model.fit([input_1, input_2],
+          games_season['score_diff'],
+          epochs=1,
+          batch_size=2048,
+          validation_split=0.10,
+          verbose=True)
+		  
+
+Evaluate the model on the tournament test data
+The model you fit to the regular season data (model) in the previous exercise and the tournament dataset (games_tourney) are available in your workspace.
+
+In this exercise, you will evaluate the model on this new dataset. This evaluation will tell you how well you can predict the tournament games, based on a model trained with the regular season data. This is interesting because many teams play each other in the tournament that did not play in the regular season, so this is a very good check that your model is not overfitting.
+
+# Get team_1 from the tournament data
+input_1 = games_tourney['team_1']
+
+# Get team_2 from the tournament data
+input_2 = games_tourney['team_2']
+
+# Evaluate the model using these inputs
+model.evaluate([input_1, input_2], games_tourney['score_diff'])
+
+
+Three-input models
+
+Simple model with 3 inputs
+from keras.layers import Input, Concatenate, Dense
+in_tensor_1 = Input(shape=(1,))
+in_tensor_2 = Input(shape=(1,))
+in_tensor_3 = Input(shape=(1,))
+out_tensor = Concatenate()([in_tensor_1, in_tensor_2, in_tensor_3])
+output_tensor = Dense(1)(out_tensor)
+
+Simple model with 3 inputs
+from keras.models import Model
+model = Model([in_tensor_1, in_tensor_2, in_tensor_3], out_tensor)
+
+Shared layers with 3 inputs
+shared_layer = Dense(1)
+shared_tensor_1 = shared_layer(in_tensor_1)
+shared_tensor_2 = shared_layer(in_tensor_1)
+out_tensor = Concatenate()([shared_tensor_1, shared_tensor_2, in_tensor_3])
+out_tensor = Dense(1)(out_tensor)
+
+Fitting a 3 input model
+from keras.models import Model
+model = Model([in_tensor_1, in_tensor_2, in_tensor_3], out_tensor)
+model.compile(loss='mae', optimizer='adam')
+model.fit([[train['col1'], train['col2'], train['col3']], train_data['target'], epochs=1, verbose=True, validation_split=.10, batch_size=2048))
+model.evaluate([[test['col1'], test['col2'], test['col3']], test['target'])
+
+Plotting models
+In addition to summarizing your model, you can also plot your model to get a more intuitive sense of it. Your model is available in the workspace.
+
+# Imports
+import matplotlib.pyplot as plt
+from keras.utils import plot_model
+
+# Plot the model
+plot_model(model, to_file='model.png')
+
+# Display the image
+data = plt.imread('model.png')
+plt.imshow(data)
+plt.show()
+
+
+Stacking models
+Stacking of models or using the prediction of one model as an input to another model
+
+3 input model with pure numeric data
+games_tourney[['home','seed_diff','pred']].head()
+
+   home  seed_diff      pred
+0     0         -3  0.582556
+1     0          4  0.707279
+2     0          5  1.364844
+3     0          3  0.699145
+4     0          1  0.833066
+
+
+
+3 input model with pure numeric data
+from keras.layers import Input, Dense
+in_tensor = Input(shape=(3,))
+out_tensor = Dense(1)(in_tensor)
+ 
+from keras.models import Model
+model = Model(in_tensor, out_tensor)
+model.compile(optimizer='adam', loss='mae')
+train_X = train_data[['home','seed_diff','pred']]
+train_y = train_data['score_diff']
+model.fit(train_X,train_y, epochs=10, validation_split=.10)
+ 
+test_X = test_data[['home','seed_diff','pred']]
+test_y = test_data['score_diff']
+model.evaluate(test_X, test_y)
+1066/1066 [==============================] - 0s 14us/step
+9.11321775461451
+
+Add the model predictions to the tournament data
+In lesson 1 of this chapter, you used the regular season model to make predictions on the tournament dataset, and got pretty good results! Try to improve your predictions for the tournament by modeling it specifically.
+
+You'll use the prediction from the regular season model as an input to the tournament model. This is a form of "model stacking."
+
+To start, take the regular season model from the previous lesson, and predict on the tournament data. Add this prediction to the tournament data as a new column.
+
+# Predict
+games_tourney['pred'] = model.predict([games_tourney['team_1'], 
+                                             games_tourney['team_2'], 
+                                             games_tourney['home']])
+											 
+Create an input layer with multiple columns
+In this exercise, you will look at a different way to create models with multiple inputs. This method only works for purely numeric data, but its a much simpler approach to making multi-variate neural networks.
+
+Now you have three numeric columns in the tournament dataset: 'seed_diff', 'home', and 'pred'. In this exercise, you will create a neural network that uses a single input layer to process all three of these numeric inputs.
+
+This model should have a single output to predict the tournament game score difference.
+
+# Create an input layer with 3 columns
+input_tensor = Input((3,))
+
+# Pass it to a Dense layer with 1 unit
+output_tensor = Dense(1)(input_tensor)
+
+# Create a model
+model = Model(input_tensor, output_tensor)
+
+# Compile the model
+model.compile(optimizer='adam', loss='mean_absolute_error')
+
+Fit the model
+Now that you've enriched the tournament dataset and built a model to make use of the new data, fit that model to the tournament data.
+
+Note that this model has only one input layer that is capable of handling all 3 inputs, so it's inputs and outputs do not need to be a list.
+
+Tournament games are split into a training set and a test set. The tournament games before 2010 are in the training set, and the ones after 2010 are in the test set.
+
+# Fit the model
+model.fit(games_tourney_train[['home', 'seed_diff', 'pred']],
+          games_tourney_train['score_diff'],
+          epochs=1,
+          verbose=True)
+		  
+Evaluate the model
+Now that you've fit your model to the tournament training data, evaluate it on the tournament test data. Recall that the tournament test data contains games from after 2010.
+
+# Evaluate the model on the games_tourney_test dataset
+model.evaluate(games_tourney_test[['home', 'seed_diff', 'prediction']], 
+               games_tourney_test['score_diff'])
+			   
+  32/1066 [..............................] - ETA: 0s
+ 576/1066 [===============>..............] - ETA: 0s
+1066/1066 [==============================] - 0s 124us/step
+Out[1]: 9.07315489498804
+
+
+Two-output models
+
+Simple model with 2 outputs
+
+from keras.layers import Input, Concatenate, Dense
+input_tensor = Input(shape=(1,))
+output_tensor = Dense(2)(input_tensor)
+
+
+from keras.models import Model
+model = Model(input_tensor, output_tensor)
+model.compile(optimizer='adam', loss='mean_absolute_error')
+
+
+Fitting a model with 2 outputs
+games_tourney_train[['seed_diff', 'score_1', 'score_2']].head()
+ 
+   seed_diff  score_1  score_2
+0         -3       41       50
+1          4       61       55
+2          5       59       63
+3          3       50       41
+4          1       54       63
+X = games_tourney_train[['seed_diff']]
+y = games_tourney_train[['score_1', 'score_2']]
+model.fit(X, y, epochs=500)
+
+Inspecting a 2 output model
+model.get_weights()
+ 
+[array([[ 0.60714734, -0.5988793 ]], dtype=float32),
+ array([70.39491, 70.39306], dtype=float32)]
+ 
+ Evaluating a model with 2 outputs
+X = games_tourney_test[['seed_diff']]
+y = games_tourney_test[['score_1', 'score_2']]
+model.evaluate(X, y)
+ 
+11.528035634635021
+
+
+Simple two-output model
+In this exercise, you will use the tournament data to build one model that makes two predictions: the scores of both teams in a given game. Your inputs will be the seed difference of the two teams, as well as the predicted score difference from the model you built in chapter 3.
+
+The output from your model will be the predicted score for team 1 as well as team 2. This is called "multiple target regression": one model making more than one prediction.
+
+# Define the input
+input_tensor = Input(shape=(2,))
+
+# Define the output
+output_tensor = Dense(2)(input_tensor)
+
+# Create a model
+model = Model(input_tensor, output_tensor)
+
+# Compile the model
+model.compile(loss='mean_absolute_error', optimizer='adam')
+
+Fit a model with two outputs
+Now that you've defined your 2-output model, fit it to the tournament data. I've split the data into games_tourney_train and games_tourney_test, so use the training set to fit for now.
+
+This model will use the pre-tournament seeds, as well as your pre-tournament predictions from the regular season model you built previously in this course.
+
+As a reminder, this model will predict the scores of both teams.
+
+model.fit(games_tourney_train[['seed_diff', 'pred']],
+  		  games_tourney_train[['score_1', 'score_2']],
+  		  verbose=True,
+          epochs=100,
+  		  batch_size=16384)
+		  
+Inspect the model (I)
+Now that you've fit your model, let's take a look at it. You can use the .get_weights() method to inspect your model's weights.
+
+The input layer will have 4 weights: 2 for each input times 2 for each output.
+
+The output layer will have 2 weights, one for each output.
+
+# Print the model's weights
+print(model.get_weights())
+
+# Print the column means of the training data
+print(games_tourney_train.mean())
+
+[array([[ 0.13067713, -0.10371894],
+       [ 0.38644195, -0.35632333]], dtype=float32), array([72.38115, 72.38473], dtype=float32)]
+season        1.998074e+03
+team_1        5.556771e+03
+team_2        5.556771e+03
+home          0.000000e+00
+seed_diff     0.000000e+00
+score_diff    0.000000e+00
+score_1       7.162128e+01
+score_2       7.162128e+01
+won           5.000000e-01
+pred         -1.625470e-14
+dtype: float64
+
+Evaluate the model
+Now that you've fit your model and inspected it's weights to make sure it makes sense, evaluate it on the tournament test set to see how well it performs on new data.
+
+model.evaluate(games_tourney_test[['seed_diff', 'pred']], games_tourney_test[['score_1', 'score_2']])
+
+ 32/804 [>.............................] - ETA: 0s
+804/804 [==============================] - 0s 66us/step
+Out[1]: 8.986760239102948
+
+
+Single model for classification and regression
+
+
+Build a simple regressor/classifier
+from keras.layers import Input, Dense
+input_tensor = Input(shape=(1,))
+output_tensor_reg = Dense(1)(input_tensor)
+output_tensor_class = Dense(1, activation='sigmoid')(output_tensor_reg)
+
+Make a regressor/classifier model
+from keras.models import Model
+model = Model(input_tensor, [output_tensor_reg, output_tensor_class])
+model.compile(loss=['mean_absolute_error', 'binary_crossentropy'], 
+              optimizer='adam')
+			  
+			  
+Fit the combination classifier/regressor
+X = games_tourney_train[['seed_diff']]
+y_reg = games_tourney_train[['score_diff']]
+y_class = games_tourney_train[['won']]
+model.fit(X, [y_reg, y_class], epochs=100)
+
+Look at the model's weights
+model.get_weights()
+[array([[1.2371823]], dtype=float32),
+ array([-0.05451894], dtype=float32),
+ array([[0.13870609]], dtype=float32),
+ array([0.00734114], dtype=float32)]
+  
+ from scipy.special import expit as sigmoid
+print(sigmoid(1 * 0.13870609 + 0.00734114))
+ 
+0.5364470465211318
+
+Evaluate the model on new data
+X = games_tourney_test[['seed_diff']]
+y_reg = games_tourney_test[['score_diff']]
+y_class = games_tourney_test[['won']]
+model.evaluate(X, [y_reg, y_class])
+ 
+[9.866300069455413, 9.281179495657208, 0.585120575627864]
+
+
+Classification and regression in one model
+Now you will create a different kind of 2-output model. This time, you will predict the score difference, instead of both team's scores and then you will predict the probability that team 1 won the game. This is a pretty cool model: it is going to do both classification and regression!
+
+In this model, turn off the bias, or intercept for each layer. Your inputs (seed difference and predicted score difference) have a mean of very close to zero, and your outputs both have means that are close to zero, so your model shouldn't need the bias term to fit the data well.
+
+# Create an input layer with 2 columns
+input_tensor = Input(shape=(2,))
+
+# Create the first output
+output_tensor_1 = Dense(1, activation='linear', use_bias=False)(input_tensor)
+
+# Create the second output (use the first output as input here)
+output_tensor_2 = Dense(1, activation='sigmoid', use_bias=False)(output_tensor_1)
+
+# Create a model with 2 outputs
+model = Model(input_tensor, [output_tensor_1, output_tensor_2])
+
+Compile and fit the model
+Now that you have a model with 2 outputs, compile it with 2 loss functions: mean absolute error (MAE) for 'score_diff' and binary cross-entropy (also known as logloss) for 'won'. Then fit the model with 'seed_diff' and 'pred' as inputs. For outputs, predict 'score_diff' and 'won'.
+
+This model can use the scores of the games to make sure that close games (small score diff) have lower win probabilities than blowouts (large score diff).
+
+The regression problem is easier than the classification problem because MAE punishes the model less for a loss due to random chance. For example, if score_diff is -1 and won is 0, that means team_1 had some bad luck and lost by a single free throw. The data for the easy problem helps the model find a solution to the hard problem.
+
+# Import the Adam optimizer
+from keras.optimizers import Adam
+
+# Compile the model with 2 losses and the Adam optimzer with a higher learning rate
+model.compile(loss=['mean_absolute_error', 'binary_crossentropy'], optimizer=Adam(.01))
+
+# Fit the model to the tournament training data, with 2 inputs and 2 outputs
+model.fit(games_tourney_train[['seed_diff', 'pred']],
+          [games_tourney_train[['score_diff']], games_tourney_train[['won']]],
+          epochs=10,
+          verbose=True,
+          batch_size=16384)
+		  
+
+Inspect the model (II)
+Now you should take a look at the weights for this model. In particular, note the last weight of the model. This weight converts the predicted score difference to a predicted win probability. If you multiply the predicted score difference by the last weight of the model and then apply the sigmoid function, you get the win probability of the game.
+
+# Print the model weights
+print(model.get_weights())
+
+# Print the training data means
+print(games_tourney_train.mean())
+
+Inspect the model (II)
+Now you should take a look at the weights for this model. In particular, note the last weight of the model. This weight converts the predicted score difference to a predicted win probability. If you multiply the predicted score difference by the last weight of the model and then apply the sigmoid function, you get the win probability of the game.
+
+# Import the sigmoid function from scipy
+from scipy.special import expit as sigmoid
+
+# Weight from the model
+weight = 0.14
+
+# Print the approximate win probability of a predicted close game
+print(sigmoid(1 * weight))
+
+# Print the approximate win probability of a predicted blowout game
+print(sigmoid(10 * weight))
+
+Evaluate on new data with two metrics
+Now that you've fit your model and inspected its weights to make sure they make sense, evaluate your model on the tournament test set to see how well it does on new data.
+
+Note that in this case, Keras will return 3 numbers: the first number will be the sum of both the loss functions, and then the next 2 numbers will be the loss functions you used when defining the model.
+
+# Evaluate the model on new data
+model.evaluate(games_tourney_test[['seed_diff', 'pred']],
+               [games_tourney_test[['score_diff']], games_tourney_test[['won']]])
