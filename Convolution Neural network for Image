@@ -1,0 +1,533 @@
+Convolutional Neural Networks for Image Processing
+
+Introducing convolutional neural networks
+
+
+Images as data
+import matplotlib.pyplot as plt
+data = plt.imread('stop_sign.jpg')
+plt.imshow(data)
+plt.show()
+
+data.shape
+(2832, 4256, 3)
+height, width, rgb(0-r, 1-g, 2-b)
+
+find the pixel color in the array
+data[250, 3500]
+>>array([0.25882353, 0.43921569, 0.77254902])
+
+Modifying image data
+data[:, :, 1] = 0
+data[:, :, 2] = 0
+plt.imshow(data)
+plt.show()
+
+
+Changing an image in particular position
+data[200:1200, 200:1200, :] = [0, 1, 0]
+plt.imshow(data)
+plt.show()
+
+Black and white images
+tshirt[10:20, 15:25] = 1
+plt.imshow(tshirt)
+plt.show()
+
+Using one-hot encoding to represent images
+Neural networks expect the labels of classes in a dataset to be organized in a one-hot encoded manner: each row in the array contains zeros in all columns, except the column corresponding to a unique label, which is set to 1.
+
+The fashion dataset contains three categories:
+
+Shirts
+Dresses
+Shoes
+In this exercise, you will create a one-hot encoding of a small sample of these labels.
+
+# The number of image categories
+n_categories = 3
+
+# The unique values of categories in the data
+categories = np.array(["shirt", "dress", "shoe"])
+
+# Initialize ohe_labels as all zeros
+ohe_labels = np.zeros((len(labels), n_categories))
+
+# Loop over the labels
+for ii in range(len(labels)):
+    # Find the location of this label in the categories variable
+    jj = np.where(categories == labels[ii])
+    # Set the corresponding zero to one
+    ohe_labels[ii, jj] = 1
+	
+
+Evaluating a classifier
+To evaluate a classifier, we need to test it on images that were not used during training. This is called "cross-validation": a prediction of the class (e.g., t-shirt, dress or show) is made from each of the test images, and these predictions are compared with the true labels of these images.
+
+The results of cross-validation are provided as one-hot encoded arrays: test_labels and predictions.
+
+# Calculate the number of correct predictions
+number_correct = (test_labels * predictions).sum()
+print(number_correct)
+
+# Calculate the proportion of correct predictions
+proportion_correct = number_correct/len(predictions)
+print(proportion_correct)
+
+
+Image classification with Keras
+
+Keras for image classification
+from keras.models import Sequential
+from keras.layers import Dense
+
+model = Sequential()
+
+from keras.layers import Dense
+train_data.shape
+(50, 28, 28, 1)
+
+50 images, 28x28 pixels, bw
+
+
+Creating the hidden layer and output layer
+model.add(Dense(10, activation='relu', 
+          input_shape=(784,)))
+model.add(Dense(10, activation='relu'))
+model.add(Dense(3, activation='softmax'))
+
+
+Compile the model
+model.compile(optimizer='adam',         
+              loss='categorical_crossentropy', 
+              metrics=['accuracy'])
+			  
+reshape the data to a 2d array
+train_data = train_data.reshape((50, 784))
+
+fit the model
+model.fit(train_data, train_labels, 
+          validation_split=0.2,
+          epochs=3)
+		  
+Train on 40 samples, validate on 10 samples
+Epoch 1/3
+
+32/40 [=======================>......] - ETA: 0s - loss: 1.0117 - acc: 0.4688
+40/40 [==============================] - 0s 4ms/step - loss: 1.0438 - acc: 0.4250 - val_loss: 0.9668 - val_acc: 0.4000
+Epoch 2/3
+
+32/40 [=======================>......] - ETA: 0s - loss: 0.9556 - acc: 0.5312
+40/40 [==============================] - 0s 195us/step - loss: 0.9404 - acc: 0.5750 - val_loss: 0.9068 - val_acc: 0.4000
+Epoch 3/3
+
+32/40 [=======================>......] - ETA: 0s - loss: 0.9143 - acc: 0.5938
+40/40 [==============================] - 0s 189us/step - loss: 0.8726 - acc: 0.6750 - val_loss: 0.8452 - val_acc: 0.4000
+
+model.evaluate(test_data, test_labels)
+10/10 [==============================] - 0s 335us/step
+[1.0191701650619507, 0.4000000059604645]
+
+
+Convolutions
+
+Using correlations in images
+Natural images contain spatial correlations
+For example, pixels along a contour or edge
+How can we use these correlations?
+
+
+What is a convolution?
+
+To find the contour or edge of the pixels
+
+array = np.array([0, 0, 0, 0, 0, 1, 1, 1, 1, 1])
+kernel = np.array([-1, 1])
+conv = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0])
+conv[0] = (kernel * array[0:2]).sum()
+conv[1] = (kernel * array[1:3]).sum()
+conv[2] = (kernel * array[2:4]).sum()
+...
+
+for ii in range(8):
+    conv[ii] = (kernel * array[ii:ii+2]).sum()
+conv
+array([0, 0, 0, 0, 1, 0, 0, 0, 0])
+
+
+Convolution in one dimension
+array = np.array([0, 0, 1, 1, 0, 0, 1, 1, 0, 0])
+kernel = np.array([-1, 1])
+conv = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0])
+for ii in range(8):
+    conv[ii] = (kernel * array[ii:ii+2]).sum()
+conv
+array([ 0,  1,  0, -1,  0,  1,  0, -1,  0])
+
+
+Feature map contains the value of the pixels from the windows of the main pictures
+
+Two-dimensional convolution
+kernel = np.array([[-1, 1], 
+                   [-1, 1]])
+conv = np.zeros((27, 27)
+for ii in range(27):
+    for jj in range(27):
+        window = image[ii:ii+2, jj:jj+2] 
+        conv[ii, jj] = np.sum(window * kernel)
+		
+Implementing image convolutions in Keras
+
+Keras 'Convolution' layer
+from keras.layers import Conv2D
+Conv2D(10, kernel_size=3, activation='relu')
+
+Integrating convolution layers into a network
+from keras.models import Sequential
+from keras.layers import Dense, Conv2D, Flatten
+model = Sequential()
+model.add(Conv2D(10, kernel_size=3, activation='relu', 
+              input_shape=(img_rows, img_cols, 1)))
+#Zero padding in Keras
+model.add(Conv2D(10, kernel_size=3, activation='relu', 
+                 input_shape=(img_rows, img_cols, 1)),
+                 padding='valid'/'same')		 
+#Strides in Keras
+model.add(Conv2D(10, kernel_size=3, activation='relu', 
+                 input_shape=(img_rows, img_cols, 1)),
+                 strides=1)
+model.add(Flatten())
+model.add(Dense(3, activation='softmax'))
+
+Fitting a CNN
+model.compile(optimizer='adam', 
+              loss='categorical_crossentropy', 
+              metrics=['accuracy'])
+train_data.shape
+(50, 28, 28, 1)
+model.fit(train_data, train_labels, validation_split=0.2, epochs=3)
+
+model.evaluate(test_data, test_labels, epochs=3, batch_size=10)
+
+
+Tweaking your convolutions
+
+Calculating the size of the output
+O = ((I - K + 2P) / S) + 1O=((I−K+2P)/S)+1
+where
+
+II = size of the input
+KK = size of the kernel
+PP = size of the zero padding
+SS = strides
+
+Going deeper
+
+Network with one convolutional layer: implementation
+model = Sequential()
+model.add(Conv2D(10, kernel_size=2, activation='relu', 
+                 input_shape=(img_rows, img_cols, 1)))
+model.add(Flatten())
+model.add(Dense(3, activation='softmax'))
+
+
+Building a deep network
+model = Sequential()
+model.add(Conv2D(10, kernel_size=2, activation='relu', 
+                 input_shape=(img_rows, img_cols, 1), 
+                 padding='equal'))
+# Second convolutional layer
+model.add(Conv2D(10, kernel_size=2, activation='relu')
+model.add(Flatten())
+model.add(Dense(3, activation='softmax'))
+
+# Compile model
+model.compile(optimizer='adam', 
+              loss='categorical_crossentropy', 
+              metrics=['accuracy'])
+
+# Fit the model to training data 
+model.fit(train_data, train_labels, 
+          validation_split=0.2, 
+          epochs=3, batch_size=10)
+
+# Evaluate the model on test data
+model.evaluate(test_data, test_labels, batch_size=10)
+
+
+How many parameters?
+
+Counting parameters
+model = Sequential()
+
+model.add(Dense(10, activation='relu', 
+          input_shape=(784,)))
+model.add(Dense(10, activation='relu'))
+
+model.add(Dense(3, activation='softmax'))
+
+Model summary
+# Call the summary method 
+model.summary()
+_________________________________________________________________
+Layer (type)                 Output Shape              Param #   
+=================================================================
+dense_1 (Dense)              (None, 10)                7850      
+_________________________________________________________________
+dense_2 (Dense)              (None, 10)                110       
+_________________________________________________________________
+dense_3 (Dense)              (None, 3)                 33        
+=================================================================
+Total params: 7,993
+Trainable params: 7,993
+Non-trainable params: 0
+
+Counting parameters
+
+model.add(Dense(10, 
+                activation='relu', 
+                input_shape=(784,)))
+parameters~=~ 784 * 10 + 10
+= 7850
+
+model.add(Dense(10, 
+                activation='relu'))
+parameters~=~10 * 10 + 10
+= 110
+
+model.add(Dense(3, 
+                activation='softmax'))
+parameters~=~ 10 * 3 + 3
+= 33
+
+
+Model summary
+model.summary()
+_________________________________________________________________
+Layer (type)                 Output Shape              Param #   
+=================================================================
+dense_1 (Dense)              (None, 10)                7850      
+_________________________________________________________________
+dense_2 (Dense)              (None, 10)                110       
+_________________________________________________________________
+dense_3 (Dense)              (None, 3)                 33        
+=================================================================
+Total params: 7,993
+Trainable params: 7,993
+Non-trainable params: 0
+
+The number of parameters in a CNN
+model = Sequential()
+model.add(Conv2D(10, kernel_size=3, activation='relu', 
+                 input_shape=(28, 28, 1), padding='same'))
+model.add(Conv2D(10, kernel_size=3, activation='relu', 
+                 padding='same'))
+model.add(Flatten())
+model.add(Dense(3, activation='softmax'))
+
+
+model.summary()
+
+_________________________________________________________________
+Layer (type)                 Output Shape              Param #   
+=================================================================
+conv2d_1 (Conv2D)           (None, 28, 28, 10)        100       
+_________________________________________________________________
+conv2d_2 (Conv2D)           (None, 28, 28, 10)        910       
+_________________________________________________________________
+flatten_3 (Flatten)          (None, 7840)              0         
+_________________________________________________________________
+dense_4 (Dense)              (None, 3)                 23523     
+=================================================================
+Total params: 24,533
+Trainable params: 24,533
+Non-trainable params: 0
+
+Increasing the number of units in each layer
+model = Sequential()
+model.add(Dense(5, activation='relu', 
+          input_shape=(784,), padding='same'))
+model.add(Dense(15, activation='relu', padding='same'))
+model.add(Dense(3, activation='softmax'))
+
+
+Increasing the number of units in each layer
+model = Sequential()
+model.add(Conv2D(5, kernel_size=3, activation='relu', 
+                 input_shape=(28, 28, 1), padding="same"))
+model.add(Conv2D(15, kernel_size=3, activation='relu', 
+                 padding="same"))
+model.add(Flatten())
+model.add(Dense(3, activation='softmax'))
+
+
+Reducing parameters with pooling
+
+Implementing max pooling
+for ii in range(result.shape[0]):
+    for jj in range(result.shape[1]):
+        result[ii, jj] = np.max(im[ii*2:ii*2+2, jj*2:jj*2+2])
+
+Max pooling in Keras
+from keras.models import Sequential
+from keras.layers import Dense, Conv2D, Flatten, MaxPool2D
+model = Sequential()
+model.add(Conv2D(5, kernel_size=3, activation='relu', 
+              input_shape=(img_rows, img_cols, 1)))
+model.add(MaxPool2D(2))
+model.add(Conv2D(15, kernel_size=3, activation='relu', 
+              input_shape=(img_rows, img_cols, 1)))
+model.add(MaxPool2D(2))
+model.add(Flatten())
+model.add(Dense(3, activation='softmax'))
+
+Max pooling reduces the number of parameters
+model.summary()
+
+_________________________________________________________________
+Layer (type)                 Output Shape              Param #   
+=================================================================
+conv2d_1 (Conv2D)            (None, 26, 26, 5)         50        
+_________________________________________________________________
+max_pooling2d_1 (MaxPooling2 (None, 13, 13, 5)         0         
+_________________________________________________________________
+conv2d_2 (Conv2D)            (None, 11, 11, 15)        690       
+_________________________________________________________________
+max_pooling2d_2 (MaxPooling2 (None, 5, 5, 15)          0         
+_________________________________________________________________
+flatten_1 (Flatten)          (None, 375)               0         
+_________________________________________________________________
+dense_1 (Dense)              (None, 3)                 1128      
+=================================================================
+Total params: 1,868
+Trainable params: 1,868
+Non-trainable params: 0
+_____________________________
+
+
+# Compile model
+model.compile(optimizer='adam', 
+              loss='categorical_crossentropy', 
+              metrics=['accuracy'])
+
+# Fit the model to training data 
+model.fit(train_data, train_labels, 
+          validation_split=0.2, 
+          epochs=3, batch_size=10)
+
+# Evaluate the model on test data
+model.evaluate(test_data, test_labels, batch_size=10)
+
+
+Plotting training curves
+training = model.fit(train_data, train_labels, 
+                     epochs=3, validation_split=0.2)
+import matplotlib.pyplot as plt
+# Plot the training loss 
+plt.plot(history['loss'])
+# Plot the validation loss
+plt.plot(history['val_loss'])
+plt.show()
+
+
+Storing the optimal parameters
+from keras.callbacks import ModelCheckpoint
+
+# This checkpoint object will store the model parameters 
+# in the file "weights.hdf5"
+checkpoint = ModelCheckpoint('weights.hdf5', monitor='val_loss', 
+                             save_best_only=True)
+# Store in a list to be used during training
+callbacks_list = [checkpoint]
+# Fit the model on a training set, using the checkpoint as a callback
+model.fit(train_data, train_labels, validation_split=0.2, epochs=3,         
+          callbacks=callbacks_list)
+		  
+		  
+Loading stored parameters
+model.load_weights('weights.hdf5')
+model.predict_classes(test_data)
+array([2, 2, 1, 2, 0, 1, 0, 1, 2, 0])
+
+
+Neural network regularization
+
+Dropout
+In each learning step:
+
+Select a subset of the units
+Ignore it in the forward pass
+And in the back-propagation of error
+
+
+Dropout in Keras
+from keras.models import Sequential
+from keras.layers import Dense, Conv2D, Flatten, Dropout
+model = Sequential()
+model.add(Conv2D(5, kernel_size=3, activation='relu', 
+              input_shape=(img_rows, img_cols, 1)))
+model.add(Dropout(0.25))
+model.add(Conv2D(15, kernel_size=3, activation='relu'))
+model.add(Flatten())
+model.add(Dense(3, activation='softmax'))
+
+
+Batch normalization
+Rescale the outputs
+
+Batch Normalization in Keras
+from keras.models import Sequential
+from keras.layers import Dense, Conv2D, Flatten, BatchNormalization
+model = Sequential()
+model.add(Conv2D(5, kernel_size=3, activation='relu', 
+              input_shape=(img_rows, img_cols, 1)))
+model.add(BatchNormalization())
+model.add(Conv2D(15, kernel_size=3, activation='relu'))
+model.add(Flatten())
+model.add(Dense(3, activation='softmax'))
+
+
+Interpreting the model
+
+
+Selecting layers
+model.layers
+[<keras.layers.convolutional.Conv2D at 0x109f10c18>,
+ <keras.layers.convolutional.Conv2D at 0x109ec5ba8>,
+ <keras.layers.core.Flatten at 0x1221ffcc0>,
+ <keras.layers.core.Dense at 0x1221ffef0>]
+ 
+ Getting model weights
+conv1 = model.layers[0]
+weights1 = conv1.get_weights()
+len(weights1)
+2
+kernels1 = weights1[0]
+kernels1.shape
+(3, 3, 1, 5)
+kernel1_1 = kernels1[:, :, 0, 0]
+kernel1_1.shape
+(3, 3)
+
+Visualizing the kernel
+plt.imshow(kernel1_1)
+
+Visualizing the kernel responses
+test_image = test_data[3, :, :, 0]
+plt.imshow(test_image)
+
+
+Visualizing the kernel responses
+filtered_image = convolution(test_image, kernel1_1)
+plt.imshow(filtered_image)
+
+Visualizing the kernel responses
+test_image = test_data[4, :, :, 1]
+plt.imshow(test_image)
+
+filtered_image = convolution(test_image, kernel1_1)
+plt.imshow(filtered_img)
+
+kernel1_2 = kernels[:, :, 0, 1]
+filtered_image = convolution(test_image, kernel1_2)
+plt.imshow(filtered_img)
